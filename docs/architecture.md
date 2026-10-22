@@ -67,7 +67,7 @@ Runtime::execute($operation, ?$context)
   9. result     ExecutionResult with an ExecutionTrace; or an ExecutionException with a category
 ```
 
-## Decisions and changes in 0.2
+## Decisions and changes in 1.0
 
 - **Rendering moved to gcego/rendering.** The renderer registry, Blade
   renderers, render context and results, styling, state, the render
