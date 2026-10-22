@@ -4,71 +4,48 @@ declare(strict_types=1);
 
 namespace Gcego\Runtime;
 
-use Gcego\Runtime\Exceptions\InvalidRenderContextException;
+use Gcego\Runtime\Exceptions\InvalidConfigurationException;
 
 /**
  * A validated, typed view of config('gcego-runtime').
  */
 final readonly class RuntimeConfig
 {
-    public const string AliasPattern = '/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/';
-
+    /**
+     * @param  list<string>  $middleware  ExecutionMiddleware class names, checked when the package boots.
+     */
     public function __construct(
-        public bool $strict = true,
-        public bool $validate = true,
-        public int $maxDepth = 64,
-        public bool $livewireEnabled = true,
-        public string $livewireAlias = 'gcego-blueprint',
-        public string $ability = 'gcego-runtime.render',
-        public bool $debug = false,
+        public string $ability = 'gcego-runtime.execute',
+        public array $middleware = [],
+        public int $maxNesting = 8,
     ) {}
 
     /**
      * @param  array<mixed>  $config
      *
-     * @throws InvalidRenderContextException
+     * @throws InvalidConfigurationException
      */
-    public static function fromArray(array $config, bool $debug = false): self
+    public static function fromArray(array $config): self
     {
-        $rendering = is_array($config['rendering'] ?? null) ? $config['rendering'] : [];
-        $livewire = is_array($config['livewire'] ?? null) ? $config['livewire'] : [];
-        $authorization = is_array($config['authorization'] ?? null) ? $config['authorization'] : [];
+        $execution = is_array($config['execution'] ?? null) ? $config['execution'] : [];
 
-        $maxDepth = $rendering['max_depth'] ?? 64;
-        $alias = $livewire['alias'] ?? 'gcego-blueprint';
-        $ability = $authorization['ability'] ?? 'gcego-runtime.render';
-
-        if (! is_int($maxDepth) || $maxDepth < 1 || $maxDepth > 256) {
-            throw InvalidRenderContextException::invalid('gcego-runtime.rendering.max_depth', 'must be an integer between 1 and 256.');
-        }
-
-        if (! is_string($alias) || preg_match(self::AliasPattern, $alias) !== 1) {
-            throw InvalidRenderContextException::invalid('gcego-runtime.livewire.alias', 'must be a lowercase component name such as "gcego-blueprint".');
-        }
+        $ability = $execution['ability'] ?? 'gcego-runtime.execute';
+        $middleware = $execution['middleware'] ?? [];
+        $maxNesting = $execution['max_depth'] ?? 8;
 
         if (! is_string($ability) || $ability === '') {
-            throw InvalidRenderContextException::invalid('gcego-runtime.authorization.ability', 'must be a non-empty Gate ability name.');
+            throw InvalidConfigurationException::invalid('gcego-runtime.execution.ability', 'must be a non-empty Gate ability name.');
         }
 
-        return new self(
-            strict: self::bool($rendering['strict'] ?? true, 'rendering.strict'),
-            validate: self::bool($rendering['validate'] ?? true, 'rendering.validate'),
-            maxDepth: $maxDepth,
-            livewireEnabled: self::bool($livewire['enabled'] ?? true, 'livewire.enabled'),
-            livewireAlias: $alias,
-            ability: $ability,
-            debug: $debug,
-        );
-    }
-
-    private static function bool(mixed $value, string $key): bool
-    {
-        $parsed = is_bool($value) ? $value : filter_var($value, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
-
-        if (! is_bool($parsed)) {
-            throw InvalidRenderContextException::invalid('gcego-runtime.'.$key, 'must be a boolean.');
+        if (! is_array($middleware) || ! array_is_list($middleware) || array_filter($middleware, static fn (mixed $class): bool => ! is_string($class) || $class === '') !== []) {
+            throw InvalidConfigurationException::invalid('gcego-runtime.execution.middleware', 'must be a list of ExecutionMiddleware class names.');
         }
 
-        return $parsed;
+        if (! is_int($maxNesting) || $maxNesting < 1 || $maxNesting > 64) {
+            throw InvalidConfigurationException::invalid('gcego-runtime.execution.max_depth', 'must be an integer between 1 and 64.');
+        }
+
+        /** @var list<string> $middleware */
+        return new self($ability, $middleware, $maxNesting);
     }
 }

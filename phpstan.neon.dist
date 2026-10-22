@@ -16,9 +16,3 @@ parameters:
     # because PHP does not enforce PHPDoc at runtime and these values come
     # from user configuration or files on disk.
     treatPhpDocTypesAsCertain: false
-    ignoreErrors:
-        # config/gcego-runtime.php is the package's mergeable config file: the
-        # one place env() belongs. Larastan only recognizes the app's config/ directory.
-        -
-            identifier: larastan.noEnvCallsOutsideOfConfig
-            path: config/gcego-runtime.php
