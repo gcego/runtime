@@ -1,0 +1,7 @@
+# Used by Larastan (and `vendor/bin/testbench`) to boot the package with its providers,
+# so namespaced package views ("gcego-runtime::...") are known during static analysis.
+providers:
+  - Livewire\LivewireServiceProvider
+  - Gcego\Core\GcegoServiceProvider
+  - Gcego\Registry\RegistryServiceProvider
+  - Gcego\Runtime\RuntimeServiceProvider
