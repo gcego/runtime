@@ -3,7 +3,7 @@
 All notable changes to `gcego/runtime` are documented in this file.
 The project follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.0.0] - 2026-10-22
 
 ### Added: execution kernel
 
@@ -23,7 +23,7 @@ The project follows [Semantic Versioning](https://semver.org/).
 ### Changed (breaking)
 
 - gcego/runtime is now the execution kernel only: it depends on `gcego/core` ^1.0, `gcego/registry` ^1.1, `gcego/blueprints` ^1.0 and Laravel components. `gcego/components`, `livewire/livewire` and `illuminate/view` are no longer required.
-- **Rendering moved to the new gcego/rendering package** (namespace `Gcego\Rendering`): `Rendering\*` (now `Gcego\Rendering\*`), `Blade\BladeRenderer`, `Styling\*`, `State\*`, `Contracts\RendererInterface`, `StylingResolver`, `RenderAuthorizer`, `StatefulComponent`, `Security\GateRenderAuthorizer`, the rendering exceptions, the views and `<x-gcego-runtime::render>` (now `<x-gcego-rendering::render>`). `Runtime::render()`, `renderAuthorized()`, `identityOf()`, `canRender()` and `hostedBlueprint()` are now on `Gcego\Rendering\RenderEngine` (`hostedBlueprint()` is `authorizedBlueprint()`). The `gcego-runtime.rendering.*` and `gcego-runtime.authorization.*` settings are now `gcego-rendering.*`; the ability is `gcego-rendering.render`.
+- **Rendering moved to the new gcego/rendering package** (namespace `Gcego\Rendering`, see its README for the new class locations): `Rendering\*`, `Blade\BladeRenderer`, `Styling\*`, `State\*`, `Contracts\RendererInterface`, `StylingResolver`, `RenderAuthorizer`, `StatefulComponent`, `Security\GateRenderAuthorizer`, the rendering exceptions, the views and `<x-gcego-runtime::render>` (now `<x-gcego-rendering::render>`). `Runtime::render()`, `renderAuthorized()`, `identityOf()`, `canRender()` and `hostedBlueprint()` are now on `Gcego\Rendering\RenderEngine` (`hostedBlueprint()` is `authorizedBlueprint()`). The `gcego-runtime.rendering.*` and `gcego-runtime.authorization.*` settings are now `gcego-rendering.*`; the ability is `gcego-rendering.render`.
 - `RuntimeInspector::inspect()` takes no target and reports execution only; `RuntimeReport` lost `renderers` and `missingRenderers`; `RenderDiagnostic` is `RuntimeDiagnostic`.
 - `RuntimeConfig` holds execution settings only and throws `InvalidConfigurationException`.
 - The package descriptor requires `gcego/blueprints`; capabilities are `runtime` and `runtime.execution` (`runtime.livewire` was removed).
