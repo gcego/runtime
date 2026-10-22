@@ -4,128 +4,62 @@ declare(strict_types=1);
 
 namespace Gcego\Runtime\Diagnostics;
 
-use Gcego\Components\Contracts\ComponentInterface;
-use Gcego\Components\Traversal\ComponentWalker;
-use Gcego\Registry\Registry;
-use Gcego\Runtime\Livewire\BlueprintHost;
-use Gcego\Runtime\Rendering\RendererBinding;
-use Gcego\Runtime\Rendering\RendererRegistry;
+use Gcego\Core\Contracts\FrameworkInterface;
+use Gcego\Runtime\Contracts\ExecutionAuthorizer;
+use Gcego\Runtime\Execution\ExecutionPipeline;
+use Gcego\Runtime\Execution\HandlerBinding;
+use Gcego\Runtime\Execution\HandlerRegistry;
 use Gcego\Runtime\RuntimeConfig;
-use Illuminate\Contracts\View\Factory;
-use Livewire\Livewire;
+use Illuminate\Contracts\Container\Container;
 use Throwable;
 
 /**
- * Explains the runtime: renderers, overrides, views, Livewire host and,
- * for a given definition, which components lack a renderer. Never throws.
+ * Explains the execution kernel: configuration, framework state, categories
+ * and their handlers, overrides, the authorizer and middleware. Never throws.
  */
 final readonly class RuntimeInspector
 {
-    public const array Views = [
-        'gcego-runtime::renderers.blueprint',
-        'gcego-runtime::renderers.container',
-        'gcego-runtime::errors.component',
-        'gcego-runtime::hosts.blueprint',
-        'gcego-runtime::components.render',
-    ];
-
     public function __construct(
-        private RendererRegistry $renderers,
+        private HandlerRegistry $handlers,
+        private ExecutionPipeline $pipeline,
         private RuntimeConfig $config,
-        private Factory $views,
-        private Registry $registry,
+        private Container $container,
     ) {}
 
-    public function inspect(ComponentInterface|string|null $target = null): RuntimeReport
+    public function inspect(): RuntimeReport
     {
-        $diagnostics = [];
-
-        $diagnostics[] = new RenderDiagnostic('config', RenderDiagnostic::Ok, 'Runtime configuration loaded.', [
-            'strict' => $this->config->strict,
-            'validate' => $this->config->validate,
-            'maxDepth' => $this->config->maxDepth,
-            'livewire' => $this->config->livewireEnabled,
+        $diagnostics = [new RuntimeDiagnostic('config', RuntimeDiagnostic::Ok, 'Runtime configuration loaded.', [
             'ability' => $this->config->ability,
-        ]);
+            'maxNesting' => $this->config->maxNesting,
+        ])];
 
-        foreach ($this->renderers->overrides() as $override) {
-            $diagnostics[] = new RenderDiagnostic('renderers.override', RenderDiagnostic::Warning, sprintf('%s replaced %s for %s.', $override['current'], $override['previous'], $override['target']), $override);
-        }
+        try {
+            $booted = $this->container->bound(FrameworkInterface::class) && $this->container->make(FrameworkInterface::class)->isBooted();
+            $diagnostics[] = $booted
+                ? new RuntimeDiagnostic('execution.framework', RuntimeDiagnostic::Ok, 'GCEGO Studio has booted; operations can execute.')
+                : new RuntimeDiagnostic('execution.framework', RuntimeDiagnostic::Error, 'GCEGO Studio has not booted; execute() refuses to run.');
 
-        foreach (self::Views as $view) {
-            $exists = $this->views->exists($view);
-            $diagnostics[] = new RenderDiagnostic('views', $exists ? RenderDiagnostic::Ok : RenderDiagnostic::Error, sprintf('View [%s] %s.', $view, $exists ? 'is available' : 'is missing'), ['view' => $view]);
-        }
+            $handled = array_map(static fn (HandlerBinding $binding): string => $binding->type, $this->handlers->bindings());
 
-        $diagnostics[] = $this->livewire();
-        $missing = [];
+            foreach ($this->handlers->categories() as $type => $contract) {
+                $diagnostics[] = in_array($type, $handled, true)
+                    ? new RuntimeDiagnostic('execution.categories', RuntimeDiagnostic::Ok, sprintf('"%s" operations have a handler.', $type), ['type' => $type, 'contract' => $contract])
+                    : new RuntimeDiagnostic('execution.categories', RuntimeDiagnostic::Warning, sprintf('"%s" operations have no handler yet (%s).', $type, $contract), ['type' => $type, 'contract' => $contract]);
+            }
 
-        if ($target !== null) {
-            [$diagnostics, $missing] = $this->inspectTarget($target, $diagnostics);
+            foreach ($this->handlers->overrides() as $override) {
+                $diagnostics[] = new RuntimeDiagnostic('execution.override', RuntimeDiagnostic::Warning, sprintf('%s replaced %s for %s.', $override['current'], $override['previous'], $override['key']), $override);
+            }
+
+            $diagnostics[] = new RuntimeDiagnostic('execution.authorizer', RuntimeDiagnostic::Ok, sprintf('Operations are authorized by %s.', $this->container->make(ExecutionAuthorizer::class)::class));
+            $diagnostics[] = new RuntimeDiagnostic('execution.middleware', RuntimeDiagnostic::Ok, sprintf('%d execution middleware registered.', count($this->pipeline->middlewareClasses())), ['middleware' => $this->pipeline->middlewareClasses()]);
+        } catch (Throwable $exception) {
+            $diagnostics[] = new RuntimeDiagnostic('execution', RuntimeDiagnostic::Error, $exception->getMessage(), ['exception' => $exception::class]);
         }
 
         return new RuntimeReport(
             $diagnostics,
-            array_map(static fn (RendererBinding $binding): array => $binding->toArray(), $this->renderers->bindings()),
-            $missing,
+            array_map(static fn (HandlerBinding $binding): array => $binding->toArray(), $this->handlers->bindings()),
         );
-    }
-
-    private function livewire(): RenderDiagnostic
-    {
-        if (! $this->config->livewireEnabled) {
-            return new RenderDiagnostic('livewire', RenderDiagnostic::Ok, 'The Livewire host is disabled.');
-        }
-
-        return Livewire::exists($this->config->livewireAlias)
-            ? new RenderDiagnostic('livewire', RenderDiagnostic::Ok, sprintf('<livewire:%s> is registered.', $this->config->livewireAlias), ['alias' => $this->config->livewireAlias])
-            : new RenderDiagnostic('livewire', RenderDiagnostic::Error, sprintf('<livewire:%s> is not registered to %s.', $this->config->livewireAlias, BlueprintHost::class), ['alias' => $this->config->livewireAlias]);
-    }
-
-    /**
-     * @param  list<RenderDiagnostic>  $diagnostics
-     * @return array{0: list<RenderDiagnostic>, 1: list<array{path: string, type: string, class: class-string}>}
-     */
-    private function inspectTarget(ComponentInterface|string $target, array $diagnostics): array
-    {
-        $missing = [];
-
-        try {
-            $component = is_string($target) ? $this->registry->get($target) : $target;
-
-            if (! $component instanceof ComponentInterface) {
-                $diagnostics[] = new RenderDiagnostic('target', RenderDiagnostic::Error, sprintf('%s is not a component.', $component::class));
-
-                return [$diagnostics, $missing];
-            }
-
-            $count = 0;
-
-            foreach ((new ComponentWalker($this->config->maxDepth))->preOrder($component) as $node) {
-                $count++;
-
-                if (! $this->renderers->has($node->component)) {
-                    $missing[] = ['path' => $node->path->toString(), 'type' => $node->component->type(), 'class' => $node->component::class];
-                }
-            }
-
-            $validation = $component->validate();
-
-            $diagnostics[] = new RenderDiagnostic(
-                'target.renderers',
-                $missing === [] ? RenderDiagnostic::Ok : RenderDiagnostic::Error,
-                $missing === [] ? sprintf('All %d component(s) have renderers.', $count) : sprintf('%d of %d component(s) have no renderer.', count($missing), $count),
-                ['components' => $count, 'missing' => count($missing)],
-            );
-            $diagnostics[] = new RenderDiagnostic(
-                'target.validation',
-                $validation->isValid() ? RenderDiagnostic::Ok : RenderDiagnostic::Error,
-                $validation->isValid() ? 'The definition is valid.' : sprintf('The definition has %d validation error(s).', $validation->count()),
-            );
-        } catch (Throwable $exception) {
-            $diagnostics[] = new RenderDiagnostic('target', RenderDiagnostic::Error, $exception->getMessage(), ['exception' => $exception::class]);
-        }
-
-        return [$diagnostics, $missing];
     }
 }

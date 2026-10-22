@@ -13,30 +13,19 @@ declare(strict_types=1);
 
 return [
 
-    'rendering' => [
-        // Throw on the first rendering failure (true), or report it and show an
-        // accessible "could not be displayed" placeholder for that component (false).
-        'strict' => env('GCEGO_RUNTIME_STRICT', true),
+    'execution' => [
+        // Gate ability every executed operation must pass, checked as the
+        // context's user. Laravel denies undefined abilities, so no operation
+        // runs until you define it (fails closed):
+        // Gate::define('gcego-runtime.execute', fn (?User $user, ExecutionRequest $request) => ...);
+        'ability' => 'gcego-runtime.execute',
 
-        // Validate definitions (component schema + blueprint composition) before rendering.
-        'validate' => true,
+        // ExecutionMiddleware classes wrapped around every handler, outermost
+        // first. They run after authorization and validation.
+        'middleware' => [],
 
-        // Maximum component nesting depth rendered (guards runaway recursion).
-        'max_depth' => 64,
-    ],
-
-    'livewire' => [
-        // Register the <livewire:gcego-blueprint blueprint="..."/> host.
-        'enabled' => true,
-        'alias' => 'gcego-blueprint',
-    ],
-
-    'authorization' => [
-        // Gate ability checked before rendering through the Livewire host or
-        // <x-gcego-runtime::render>. Laravel denies undefined abilities, so
-        // nothing renders publicly until you define it (fails closed):
-        // Gate::define('gcego-runtime.render', fn (?User $user, string $identity) => ...);
-        'ability' => 'gcego-runtime.render',
+        // Maximum nesting of operations executed from inside handlers.
+        'max_depth' => 8,
     ],
 
 ];

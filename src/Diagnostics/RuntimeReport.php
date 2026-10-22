@@ -10,28 +10,26 @@ namespace Gcego\Runtime\Diagnostics;
 final readonly class RuntimeReport
 {
     /**
-     * @param  list<RenderDiagnostic>  $diagnostics
-     * @param  list<array{target: class-string, renderer: class-string, inherit: bool}>  $renderers
-     * @param  list<array{path: string, type: string, class: class-string}>  $missingRenderers
+     * @param  list<RuntimeDiagnostic>  $diagnostics
+     * @param  list<array{type: string, name: string|null, handler: class-string}>  $handlers
      */
     public function __construct(
         public array $diagnostics,
-        public array $renderers,
-        public array $missingRenderers = [],
+        public array $handlers = [],
     ) {}
 
     /**
-     * @return list<RenderDiagnostic>
+     * @return list<RuntimeDiagnostic>
      */
     public function check(string $check): array
     {
-        return array_values(array_filter($this->diagnostics, static fn (RenderDiagnostic $diagnostic): bool => $diagnostic->check === $check));
+        return array_values(array_filter($this->diagnostics, static fn (RuntimeDiagnostic $diagnostic): bool => $diagnostic->check === $check));
     }
 
     public function isHealthy(): bool
     {
         foreach ($this->diagnostics as $diagnostic) {
-            if ($diagnostic->level === RenderDiagnostic::Error) {
+            if ($diagnostic->level === RuntimeDiagnostic::Error) {
                 return false;
             }
         }
@@ -46,9 +44,8 @@ final readonly class RuntimeReport
     {
         return [
             'healthy' => $this->isHealthy(),
-            'renderers' => $this->renderers,
-            'missingRenderers' => $this->missingRenderers,
-            'diagnostics' => array_map(static fn (RenderDiagnostic $diagnostic): array => $diagnostic->toArray(), $this->diagnostics),
+            'handlers' => $this->handlers,
+            'diagnostics' => array_map(static fn (RuntimeDiagnostic $diagnostic): array => $diagnostic->toArray(), $this->diagnostics),
         ];
     }
 }

@@ -9,6 +9,8 @@ use Throwable;
 /**
  * Marker implemented by every exception thrown by gcego/runtime.
  *
- * Authorization failures are Laravel's own AuthorizationException (HTTP 403).
+ * Executed operations throw ExecutionException subclasses, each with an
+ * ErrorCategory; registration and configuration errors are
+ * HandlerRegistrationException and InvalidConfigurationException.
  */
 interface RuntimeException extends Throwable {}

@@ -1,8 +1,15 @@
 {
     "name": "gcego/runtime",
-    "description": "Rendering runtime for GCEGO Admin Studio: renderer registry, Blade rendering and Livewire hosting of registered definitions.",
+    "description": "Execution kernel for GCEGO Studio: operation dispatch, trusted execution contexts, typed handlers and fail-closed authorization.",
     "type": "library",
-    "keywords": ["gcego", "runtime", "livewire", "blade", "laravel", "admin"],
+    "keywords": [
+        "gcego",
+        "runtime",
+        "execution",
+        "kernel",
+        "laravel",
+        "admin"
+    ],
     "homepage": "https://github.com/gcego/runtime",
     "license": "MIT",
     "authors": [
@@ -14,15 +21,14 @@
     ],
     "require": {
         "php": "^8.3",
-        "gcego/blueprints": "^0.1",
-        "gcego/components": "^0.1",
-        "gcego/core": "^0.1",
-        "gcego/registry": "^0.1",
+        "gcego/blueprints": "^1.0",
+        "gcego/core": "^1.0",
+        "gcego/registry": "^1.1",
         "illuminate/auth": "^13.0",
         "illuminate/contracts": "^13.0",
+        "illuminate/http": "^13.0",
         "illuminate/support": "^13.0",
-        "illuminate/view": "^13.0",
-        "livewire/livewire": "^4.4"
+        "illuminate/validation": "^13.0"
     },
     "require-dev": {
         "larastan/larastan": "^3.0",
@@ -30,12 +36,6 @@
         "orchestra/testbench": "^11.0",
         "pestphp/pest": "^4.0"
     },
-    "repositories": [
-        {"type": "path", "url": "../components", "options": {"versions": {"gcego/components": "0.1.0"}}},
-        {"type": "path", "url": "../core", "options": {"versions": {"gcego/core": "0.1.0"}}},
-        {"type": "path", "url": "../blueprints", "options": {"versions": {"gcego/blueprints": "0.1.0"}}},
-        {"type": "path", "url": "../registry", "options": {"versions": {"gcego/registry": "0.1.0"}}}
-    ],
     "autoload": {
         "psr-4": {
             "Gcego\\Runtime\\": "src/"
@@ -57,7 +57,10 @@
         "laravel": {
             "providers": [
                 "Gcego\\Runtime\\RuntimeServiceProvider"
-            ]
+            ],
+            "aliases": {
+                "Runtime": "Gcego\\Runtime\\Facades\\Runtime"
+            }
         }
     },
     "config": {
