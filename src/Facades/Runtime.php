@@ -37,7 +37,7 @@ final class Runtime extends Facade
     }
 
     /**
-     * Mock the contract: the runtime implementation is final.
+     * Mock the contract: the runtime implementation is final
      */
     protected static function getMockableClass(): string
     {
